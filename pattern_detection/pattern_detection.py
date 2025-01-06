@@ -4,13 +4,17 @@ import os
 from typing import List
 from utils import non_max_suppression  # Asegúrate de que utils esté en tu proyecto
 
-
-cont_triangle, prev_triangle = 0,0
-cont_square, prev_square = 0,0
-cont_rhombus, prev_rhombus = 0,0
-key_one, key_two, key_three = 0,0,0
+cont_triangle, prev_triangle = 0, 0
+cont_square, prev_square = 0, 0
+cont_rhombus, prev_rhombus = 0, 0
+cont_rectangle, prev_rectangle = 0, 0
+key_one, key_two, key_three, key_four = 0, 0, 0, 0
 finished = False
+sufficient_cond = 8
+dict_keys = {"rhombus": 0, "triang": 1, "square": 2, "rectangle": 3}
+
 current_key = 0
+
 def show_image(img: np.array, img_name: str = "Image"):
     cv2.imshow(img_name, img) 
     cv2.waitKey(1) 
@@ -61,7 +65,6 @@ def canny_edge_detector(img: np.array, sobel_filter: np.array, gauss_sigma: floa
         
     return canny_edges_img
 
-
 def classify_shape(approx):
     if check_triangle(approx):
         return "Triangle"
@@ -69,17 +72,18 @@ def classify_shape(approx):
         return "Square"
     if check_rhombus(approx):
         return "Rhombus"
+    if check_rectangle(approx):
+        return "Rectangle"
     else:
         return "Unknown"
 
-    
 def check_triangle(approx):
     num_vertices = len(approx)
     if num_vertices==3:
         return True
     else:
         return False
-    
+
 def check_square(approx):
     num_vertices = len(approx)
     if num_vertices==4:
@@ -94,14 +98,12 @@ def check_square(approx):
 
 def check_rhombus(approx, tolerance: float = 0.15):
     num_vertices = len(approx)
-    if num_vertices == 4:  # Un rombo debe tener exactamente 4 vértices
-        # Calcular las distancias entre los vértices
+    if num_vertices == 4:  
         side_lengths = [
             np.linalg.norm(approx[i][0] - approx[(i + 1) % 4][0])  # Distancia entre vértices consecutivos
             for i in range(4)
         ]
         
-        # Calcular las diagonales del rombo
         diag1 = np.linalg.norm(approx[0][0] - approx[2][0])
         diag2 = np.linalg.norm(approx[1][0] - approx[3][0])
         
@@ -114,7 +116,15 @@ def check_rhombus(approx, tolerance: float = 0.15):
                 return True
     return False
 
-     
+def check_rectangle(approx):
+    num_vertices = len(approx)
+    if num_vertices == 4:
+        x, y, w, h = cv2.boundingRect(approx)
+        ratio = float(w) / h
+        if 0.1 < ratio < 0.7 or 1.5<ratio<3:  # Los rectángulos tienen proporciones más amplias
+            return True
+    return False
+
 def detect_shapes(img: np.array, canny_sigma: float, sobel_filter: np.array, min_area: int = 1000):
     canny_edges = canny_edge_detector(img, sobel_filter, canny_sigma)
     
@@ -148,11 +158,9 @@ def detect_shapes(img: np.array, canny_sigma: float, sobel_filter: np.array, min
     
     return detected_shapes, shape_name
 
-
 def main(videopath):
-    global cont_triangle, cont_square, cont_rhombus, finished
+    global cont_triangle, cont_square, cont_rhombus, cont_rectangle, finished
     cap = cv2.VideoCapture(videopath)  # Accede a la cámara por defecto
-
 
     # Filtro Sobel utilizado para la detección de bordes
     sobel_filter = np.array([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
@@ -173,23 +181,24 @@ def main(videopath):
             cont_square+=1
         if shape_name=="Rhombus":
             cont_rhombus+=1
+        if shape_name=="Rectangle":
+            cont_rectangle+=1
             
         # Muestra la imagen resultante con las formas detectadas
         cv2.imshow("Detected Shapes on Black Background", detected_shapes_img)
 
-
         validate_square()
         validate_triang()
         validate_rhombus()
-
+        validate_rectangle()
 
         # Salir con la tecla 'q'
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     
+
     cap.release()
     cv2.destroyAllWindows()
-
 
 def validate_square():
     global cont_square,prev_square,val_square, key_three, current_key
@@ -199,8 +208,8 @@ def validate_square():
         val_square +=1
         prev_square = cont_square
     
-    if val_square==10:
-        if current_key not in [2,3]:
+    if val_square==sufficient_cond:
+        if current_key not in [dict_keys["square"],dict_keys["square"]+1]:
             current_key = 0
         else:
             key_three +=1
@@ -215,8 +224,8 @@ def validate_triang():
         val_triangle +=1
         prev_triangle = cont_triangle
     
-    if val_triangle ==10:
-        if current_key not in [1,2]:
+    if val_triangle ==sufficient_cond:
+        if current_key not in [dict_keys["triang"],dict_keys["triang"]+1]:
             current_key ==0
         else:
             key_two+=1
@@ -230,34 +239,45 @@ def validate_rhombus():
         val_rhombus +=1
         prev_rhombus = cont_rhombus
     
-    if val_rhombus==10:
-        if current_key not in [0,1]:
+    if val_rhombus==sufficient_cond:
+        if current_key not in [dict_keys["rhombus"],dict_keys["rhombus"]+1]:
             current_key = 0
         else:
             key_one +=1
         print("RHOMBUS DETECTED")
 
+def validate_rectangle():
+    global cont_rectangle, prev_rectangle, val_rectangle, key_four, current_key
+    if cont_rectangle == prev_rectangle:
+        val_rectangle = 0
+    else:
+        val_rectangle += 1
+        prev_rectangle = cont_rectangle
+    
+    if val_rectangle == sufficient_cond:
+        if current_key not in [dict_keys["rectangle"], dict_keys["rectangle"] + 1]:
+            current_key = 0
+        else:
+            key_four += 1
+        print("RECTANGLE DETECTED")
+
 def validate_sequence():
-    global key_one,key_two,key_three,current_key, finished
-    if key_one==1 and current_key==0:
-        current_key +=1
+    global key_one, key_two, key_three, key_four, current_key, finished
+    if key_one == 1 and current_key == 0:
+        current_key += 1
         key_one = 0
-    if key_two==1 and current_key==1:
-        current_key +=1
-        key_two=0
-    if key_three==1 and current_key==2:
-        current_key +=1
-        key_three =0
+    if key_two == 1 and current_key == 1:
+        current_key += 1
+        key_two = 0
+    if key_three == 1 and current_key == 2:
+        current_key += 1
+        key_three = 0
+    if key_four == 1 and current_key == 3:
+        current_key += 1
+        key_four = 0
 
-    if current_key == 3:
+    if current_key == 4:  # Ahora la secuencia incluye el rectángulo
         finished = True
-    
-    
-
-
-
 
 if __name__ == "__main__":
-    print(os.path.exists("src/3_gf.mp4"))
-
-    main("src/3_gf.mp4")
+    main("src/rectangle.mp4")
