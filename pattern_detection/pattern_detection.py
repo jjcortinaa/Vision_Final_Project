@@ -169,7 +169,7 @@ def detect_shapes(img: np.array, canny_sigma: float, sobel_filter: np.array, min
     
     return detected_shapes
 
-def main(videopath):
+def main_pattern_detection(videopath):
     global finished
     cap = cv2.VideoCapture(videopath)  # Accede a la cámara por defecto
 
@@ -283,4 +283,4 @@ def validate_sequence():
         finished = True
 
 if __name__ == "__main__":
-    main("src/4_gf_def.mp4")
+    main_pattern_detection("src/4_gf_def.mp4")
