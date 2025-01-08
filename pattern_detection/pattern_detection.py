@@ -4,14 +4,14 @@ import os
 from typing import List
 from utils import non_max_suppression  # Asegúrate de que utils esté en tu proyecto
 
-cont_triangle, prev_triangle = 0, 0
-cont_square, prev_square = 0, 0
-cont_rhombus, prev_rhombus = 0, 0
-cont_rectangle, prev_rectangle = 0, 0
+cont_triangle, prev_triangle, val_triangle = 0, 0, 0
+cont_square, prev_square,val_square = 0, 0, 0
+cont_rhombus, prev_rhombus,val_rhombus = 0, 0, 0
+cont_rectangle, prev_rectangle,val_rectangle = 0,0, 0
 key_one, key_two, key_three, key_four = 0, 0, 0, 0
 finished = False
-sufficient_cond = 8
-dict_keys = {"rhombus": 0, "triang": 1, "square": 2, "rectangle": 3}
+sufficient_cond = 10
+dict_keys = {"rhombus": 0, "triang": 1, "rectangle": 2, "square": 3}
 
 current_key = 0
 
@@ -96,7 +96,7 @@ def check_square(approx):
     else:
         return False
 
-def check_rhombus(approx, tolerance: float = 0.15):
+def check_rhombus(approx, tolerance: float = 0.2):
     num_vertices = len(approx)
     if num_vertices == 4:  
         side_lengths = [
@@ -112,7 +112,7 @@ def check_rhombus(approx, tolerance: float = 0.15):
         if all((1 - tolerance) * mean_length <= length <= (1 + tolerance) * mean_length for length in side_lengths):
             # Verificar si las diagonales se cruzan en un ángulo significativo
             diag_ratio = diag1 / diag2 if diag2 > 0 else 0
-            if 0.5 <= diag_ratio <= 2.0:  # Las diagonales de un rombo no pueden ser extremadamente desiguales
+            if 0.4 <= diag_ratio <= 2.5:  # Las diagonales de un rombo no pueden ser extremadamente desiguales
                 return True
     return False
 
@@ -126,6 +126,7 @@ def check_rectangle(approx):
     return False
 
 def detect_shapes(img: np.array, canny_sigma: float, sobel_filter: np.array, min_area: int = 1000):
+    global cont_triangle, cont_square, cont_rhombus, cont_rectangle
     canny_edges = canny_edge_detector(img, sobel_filter, canny_sigma)
     
     contours, _ = cv2.findContours((canny_edges * 255).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -155,11 +156,21 @@ def detect_shapes(img: np.array, canny_sigma: float, sobel_filter: np.array, min
         
         if shape_name != "Unknown":
             print(f"Detected: {shape_name}, Color: {color_name}")
+        if shape_name=="Triangle":
+            cont_triangle +=1
+        if shape_name=="Square":
+            cont_square+=1
+        if shape_name=="Rhombus":
+            cont_rhombus+=1
+            print(cont_rhombus)
+        if shape_name=="Rectangle":
+            cont_rectangle+=1
+            
     
-    return detected_shapes, shape_name
+    return detected_shapes
 
 def main(videopath):
-    global cont_triangle, cont_square, cont_rhombus, cont_rectangle, finished
+    global finished
     cap = cv2.VideoCapture(videopath)  # Accede a la cámara por defecto
 
     # Filtro Sobel utilizado para la detección de bordes
@@ -173,17 +184,9 @@ def main(videopath):
             break
         
         # Aplica la detección de formas
-        detected_shapes_img, shape_name = detect_shapes(frame, gauss_sigma, sobel_filter)
+        detected_shapes_img = detect_shapes(frame, gauss_sigma, sobel_filter)
         
-        if shape_name=="Triangle":
-            cont_triangle +=1
-        if shape_name=="Square":
-            cont_square+=1
-        if shape_name=="Rhombus":
-            cont_rhombus+=1
-        if shape_name=="Rectangle":
-            cont_rectangle+=1
-            
+
         # Muestra la imagen resultante con las formas detectadas
         cv2.imshow("Detected Shapes on Black Background", detected_shapes_img)
 
@@ -280,4 +283,4 @@ def validate_sequence():
         finished = True
 
 if __name__ == "__main__":
-    main("src/rectangle.mp4")
+    main("src/4_gf_def.mp4")
